@@ -66,31 +66,59 @@
       background: linear-gradient(180deg, rgba(11, 19, 32, 0.15) 0%, rgba(11, 19, 32, 0.28) 60%, rgba(8, 15, 26, 0.45) 100%);
     }
 
-    /* Animated Tagline Keyframes */
-    @keyframes slideLeftToRight {
-      0% {
-        opacity: 0;
-        transform: translateX(-100%);
-      }
-      5% {
-        opacity: 1;
-        transform: translateX(0);
-      }
-      30% {
-        opacity: 1;
-        transform: translateX(0);
-      }
-      35% {
-        opacity: 0;
-        transform: translateX(100%);
-      }
-      100% {
-        opacity: 0;
-        transform: translateX(100%);
-      }
+    /* Header Bar */
+    header {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 2.5rem;
+      background: rgba(11, 19, 32, 0.28);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      height: 75px;
     }
 
-    /* Header Tagline (Perfect Horizontal Baseline Alignment) */
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    /* Official Brand Logo styling */
+    .brand-logo-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .brand-logo-wrapper:hover {
+      opacity: 0.9;
+      transform: scale(1.02);
+    }
+
+    .brand-logo-img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: contain;
+      box-shadow: 0 0 12px rgba(96, 165, 250, 0.4);
+    }
+
+    .brand-logo-text {
+      font-weight: 800;
+      font-size: 2.2rem;
+      letter-spacing: -1.2px;
+      color: #ffffff;
+    }
+
+    /* Header Tagline */
     .tagline-wrapper {
       display: inline-flex;
       align-items: center;
@@ -128,6 +156,14 @@
     .tagline-slider span:nth-child(1) { animation-delay: 0s; }
     .tagline-slider span:nth-child(2) { animation-delay: 2s; }
     .tagline-slider span:nth-child(3) { animation-delay: 4s; }
+
+    @keyframes slideLeftToRight {
+      0% { opacity: 0; transform: translateX(-100%); }
+      5% { opacity: 1; transform: translateX(0); }
+      30% { opacity: 1; transform: translateX(0); }
+      35% { opacity: 0; transform: translateX(100%); }
+      100% { opacity: 0; transform: translateX(100%); }
+    }
 
     /* Hero Typography Overlay */
     .hero-text-overlay {
@@ -216,43 +252,6 @@
       filter: brightness(1.0) contrast(1.05);
     }
 
-    /* Header Bar */
-    header {
-      position: relative;
-      z-index: 20;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.2rem 2.5rem;
-      background: rgba(11, 19, 32, 0.28);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-      height: 75px;
-    }
-
-    .brand-section {
-      display: flex;
-      align-items: center;
-      gap: 1.2rem;
-    }
-
-    .brand-logo {
-      font-weight: 800;
-      font-size: 2.2rem;
-      letter-spacing: -1.2px;
-      color: #ffffff;
-      text-decoration: none;
-      cursor: pointer;
-      user-select: none;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-    }
-
-    .brand-logo:hover {
-      opacity: 0.88;
-      transform: scale(1.02);
-    }
-
     .nav-right {
       display: flex;
       align-items: center;
@@ -263,7 +262,7 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 0.6rem 1.2rem;
+      padding: 0.6rem 1.4rem;
       border-radius: 9999px;
       background: var(--pill-bg);
       border: 1px solid var(--pill-border);
@@ -271,21 +270,6 @@
       font-size: 0.88rem;
       color: #ffffff;
       backdrop-filter: blur(8px);
-    }
-
-    .company-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0.7rem 1.6rem;
-      border-radius: 9999px;
-      background: #ffffff;
-      color: #0b1320;
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 0.9rem;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     }
 
     /* Dashboard Wrapper & Glass Containers */
@@ -473,6 +457,16 @@
       transition: width 0.5s ease, background-color 0.5s ease;
     }
 
+    /* AGING BAR STRIPE SLIDE ANIMATION KEYFRAMES */
+    @keyframes stripeSlide {
+      0% {
+        background-position: 0 0;
+      }
+      100% {
+        background-position: 24px 0;
+      }
+    }
+
     .aging-fill.animated {
       background-size: 24px 24px;
       background-image: linear-gradient(
@@ -485,7 +479,43 @@
         transparent 75%,
         transparent
       );
-      animation: stripeSlide 1.2s linear infinite;
+      animation: stripeSlide 1s linear infinite !important;
+    }
+
+    .aging-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .status-pill {
+      display: inline-block;
+      padding: 0.45rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+    }
+
+    .status-ongoing {
+      background: rgba(234, 179, 8, 0.15);
+      border: 1px solid rgba(234, 179, 8, 0.4);
+      color: #fde047;
+    }
+
+    .status-completed {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    .status-unfulfilled {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
     }
 
     /* Anti-Screenlock Stream Element */
@@ -530,7 +560,7 @@
     .brand-tag {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       padding: 0.4rem 0.9rem;
       border-radius: 9999px;
       background: rgba(96, 165, 250, 0.15);
@@ -689,7 +719,8 @@
   <div id="loginModal" class="modal-overlay">
     <div class="glass-dialog">
       <div class="brand-tag">
-        <i class="fa-solid fa-layer-group"></i> 3Sixty Notification Board
+        <img src="https://stay3sixty.com/favicon.ico" alt="3Sixty Logo" style="width: 16px; height: 16px; border-radius: 50%;" />
+        <span>3Sixty Notification Board</span>
       </div>
       <h2 class="dialog-title">Authentication</h2>
       <p class="dialog-sub">Enter your security password to log in to the operations management portal.</p>
@@ -778,8 +809,11 @@
 
   <header>
     <div class="brand-section">
-      <!-- Clickable 3Sixty Brand Logo -->
-      <a href="javascript:void(0)" id="brandLogo" class="brand-logo" title="Click to toggle board views">3Sixty</a>
+      <!-- Clickable Official 3Sixty Brand Logo & Text -->
+      <a href="javascript:void(0)" id="brandLogo" class="brand-logo-wrapper" title="Click to toggle board views">
+        <img src="https://stay3sixty.com/favicon.ico" alt="3Sixty Logo" class="brand-logo-img" />
+        <span class="brand-logo-text">3Sixty</span>
+      </a>
       
       <!-- Top Tagline with Animation -->
       <div class="tagline-wrapper" id="headerTagline">
@@ -797,10 +831,6 @@
         <i class="fa-regular fa-clock" style="color: #60a5fa;"></i>
         <span id="liveClockDisplay">--:--:--</span>
       </div>
-      <a href="https://stay3Sixty.com" target="_blank" class="company-btn">
-        <span>stay3Sixty.com</span>
-        <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
-      </a>
     </div>
   </header>
 
