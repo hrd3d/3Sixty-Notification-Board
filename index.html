@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3Sixty Live Operations Board</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    :root {
+      --font-main: 'Plus Jakarta Sans', sans-serif;
+      --glass-panel: rgba(11, 19, 32, 0.40);
+      --glass-border: rgba(255, 255, 255, 0.16);
+      --pill-bg: rgba(255, 255, 255, 0.14);
+      --pill-border: rgba(255, 255, 255, 0.22);
+      --text-white: #ffffff;
+      --text-muted: #cbd5e1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-main);
+    }
+
+    html, body {
+      height: 100vh;
+      overflow: hidden;
+      background-color: #0b1320;
+      color: var(--text-white);
+      position: relative;
+    }
+
+    /* 3Sixty Modern Exterior Building Background */
+    .bg-hero-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      background-image: url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2070&auto=format&fit=crop');
+      background-position: center center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      filter: brightness(0.92) contrast(1.1);
+      transition: filter 0.4s ease;
+    }
+
+    /* Vignette Overlay */
+    .bg-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(11, 19, 32, 0.15) 0%, rgba(11, 19, 32, 0.28) 60%, rgba(8, 15, 26, 0.45) 100%);
+    }
+
+    /* Animated Tagline Keyframes */
+    @keyframes slideLeftToRight {
+      0% {
+        opacity: 0;
+        transform: translateX(-100%);
+      }
+      5% {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      30% {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      35% {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+      100% {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+    }
+
+    /* Header Tagline (Perfect Horizontal Baseline Alignment) */
+    .tagline-wrapper {
+      display: inline-flex;
+      align-items: center;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.2px;
+      line-height: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .tagline-slider {
+      display: inline-block;
+      overflow: hidden;
+      height: 1.25rem;
+      line-height: 1.25rem;
+      margin-left: 6px;
+      position: relative;
+      width: 120px;
+    }
+
+    .tagline-slider span {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      line-height: 1.25rem;
+      font-weight: 800;
+      color: #ffffff;
+      opacity: 0;
+      transform: translateX(-100%);
+      animation: slideLeftToRight 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    .tagline-slider span:nth-child(1) { animation-delay: 0s; }
+    .tagline-slider span:nth-child(2) { animation-delay: 2s; }
+    .tagline-slider span:nth-child(3) { animation-delay: 4s; }
+
+    /* Hero Typography Overlay */
+    .hero-text-overlay {
+      position: fixed;
+      top: 25%;
+      left: 4.5rem;
+      z-index: 5;
+      max-width: 900px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(20px);
+      visibility: hidden;
+      transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s ease;
+    }
+
+    .hero-title {
+      font-size: 6.5rem;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -2.5px;
+      color: #ffffff;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .hero-tagline-slider {
+      display: block;
+      overflow: visible;
+      height: 1.25em;
+      position: relative;
+      width: 100%;
+      margin-top: 0.05em;
+    }
+
+    .hero-tagline-slider span {
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-weight: 800;
+      color: #ffffff;
+      opacity: 0;
+      white-space: nowrap;
+      transform: translateX(-100%);
+      animation: slideLeftToRight 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    .hero-tagline-slider span:nth-child(1) { animation-delay: 0s; }
+    .hero-tagline-slider span:nth-child(2) { animation-delay: 2s; }
+    .hero-tagline-slider span:nth-child(3) { animation-delay: 4s; }
+
+    .hero-subtitle {
+      font-size: 2.2rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.95);
+      letter-spacing: -0.4px;
+    }
+
+    .hero-subtitle sup {
+      font-size: 0.6em;
+      font-weight: 700;
+      top: -0.45em;
+    }
+
+    /* Default Hero View */
+    body.ui-hidden .dashboard-wrapper {
+      opacity: 0;
+      transform: translateY(15px);
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    body.ui-hidden .tagline-wrapper {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    body.ui-hidden .hero-text-overlay {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+    }
+
+    body.ui-hidden .bg-hero-container {
+      filter: brightness(1.0) contrast(1.05);
+    }
+
+    /* Header Bar */
+    header {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 2.5rem;
+      background: rgba(11, 19, 32, 0.28);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      height: 75px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    .brand-logo {
+      font-weight: 800;
+      font-size: 2.2rem;
+      letter-spacing: -1.2px;
+      color: #ffffff;
+      text-decoration: none;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .brand-logo:hover {
+      opacity: 0.88;
+      transform: scale(1.02);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .live-clock-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.6rem 1.2rem;
+      border-radius: 9999px;
+      background: var(--pill-bg);
+      border: 1px solid var(--pill-border);
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #ffffff;
+      backdrop-filter: blur(8px);
+    }
+
+    .company-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0.7rem 1.6rem;
+      border-radius: 9999px;
+      background: #ffffff;
+      color: #0b1320;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Dashboard Wrapper & Glass Containers */
+    .dashboard-wrapper {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      gap: 1.2rem;
+      width: 100vw;
+      height: calc(100vh - 75px);
+      padding: 1.2rem 1.2rem 1.2rem 0.8rem;
+      overflow: hidden;
+      transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s ease;
+    }
+
+    /* Container 1: Left Navigation Sidebar */
+    .left-nav-container {
+      width: 250px;
+      flex-shrink: 0;
+      background: var(--glass-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 1.5rem 1rem;
+      height: 100%;
+    }
+
+    .nav-menu-title {
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 1.2rem;
+      padding-left: 0.8rem;
+    }
+
+    .nav-item-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 0.9rem 1.2rem;
+      margin-bottom: 0.5rem;
+      border-radius: 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.92rem;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+    }
+
+    .nav-item-btn:hover, .nav-item-btn.active {
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+    }
+
+    .nav-item-btn.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* Container 2: Main Content Panel */
+    .right-content-container {
+      flex-grow: 1;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .view-panel {
+      display: none;
+      height: 100%;
+    }
+
+    .view-panel.active {
+      display: block;
+    }
+
+    .board-card {
+      background: var(--glass-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 28px;
+      padding: 1.8rem 2rem;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .table-scroll-container {
+      flex-grow: 1;
+      height: 100%;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .table-scroll-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 10px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: rgba(11, 19, 32, 0.65);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+      text-align: left;
+      padding: 0.8rem 1.2rem;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-weight: 700;
+    }
+
+    tr.case-row {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: all 0.25s ease;
+      border-radius: 18px;
+    }
+
+    tr.case-row:hover {
+      background: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+    }
+
+    td {
+      padding: 1.15rem 1.2rem;
+      vertical-align: middle;
+    }
+
+    td:first-child { border-radius: 18px 0 0 18px; }
+    td:last-child { border-radius: 0 18px 18px 0; }
+
+    .agent-name {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #ffffff;
+    }
+
+    .case-id-tag {
+      display: inline-block;
+      padding: 0.45rem 1rem;
+      background: var(--pill-bg);
+      border: 1px solid var(--pill-border);
+      border-radius: 9999px;
+      font-family: 'Inter', monospace;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #ffffff;
+    }
+
+    .aging-wrapper { width: 100%; }
+
+    .aging-track {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.12);
+      height: 12px;
+      border-radius: 9999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .aging-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 9999px;
+      transition: width 0.5s ease, background-color 0.5s ease;
+    }
+
+    .aging-fill.animated {
+      background-size: 24px 24px;
+      background-image: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.3) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.3) 50%,
+        rgba(255, 255, 255, 0.3) 75%,
+        transparent 75%,
+        transparent
+      );
+      animation: stripeSlide 1.2s linear infinite;
+    }
+
+    /* Anti-Screenlock Stream Element */
+    #antiLockContainer {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      pointer-events: none;
+      z-index: -9999;
+      overflow: hidden;
+    }
+
+    /* Modal Overlays */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(11, 19, 32, 0.45);
+      backdrop-filter: blur(14px);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .glass-dialog {
+      background: rgba(18, 28, 45, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 28px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+      color: #ffffff;
+    }
+
+    .brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.4rem 0.9rem;
+      border-radius: 9999px;
+      background: rgba(96, 165, 250, 0.15);
+      border: 1px solid rgba(96, 165, 250, 0.3);
+      color: #60a5fa;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.8rem;
+    }
+
+    .dialog-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.5px;
+    }
+
+    .dialog-sub {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      margin-bottom: 1.8rem;
+      line-height: 1.4;
+    }
+
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.4rem;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 0.85rem 1.1rem;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .form-input:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .form-select option {
+      background: #0b1320;
+      color: #ffffff;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: #60a5fa;
+    }
+
+    .notification-msg {
+      color: #ef4444;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      min-height: 1.2rem;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+    }
+
+    .btn-primary {
+      padding: 0.85rem 2rem;
+      border-radius: 9999px;
+      background: #ffffff;
+      color: #0b1320;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+      background: #f1f5f9;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:disabled {
+      background: #475569;
+      color: #94a3b8;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      padding: 0.85rem 1.8rem;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      font-weight: 700;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+    }
+
+    .account-card {
+      background: var(--glass-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 28px;
+      padding: 2.5rem;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .account-card::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="ui-hidden">
+
+  <!-- Full-Screen Unsplash Corporate Building Background Layer -->
+  <div class="bg-hero-container"></div>
+  <div class="bg-overlay"></div>
+
+  <!-- Hero Typography Overlay -->
+  <div class="hero-text-overlay" id="heroOverlay">
+    <div class="hero-title">
+      <span>Employee Stays,</span>
+      <div class="hero-tagline-slider">
+        <span>global</span>
+        <span>simplified</span>
+        <span>compliant</span>
+      </div>
+    </div>
+    <p class="hero-subtitle">Through our Home Match<sup>TM</sup> technology.</p>
+  </div>
+
+  <!-- Anti-Screenlock Stream Element -->
+  <div id="antiLockContainer">
+    <canvas id="antiLockCanvas" width="2" height="2"></canvas>
+    <video id="antiLockVideo" playsinline autoplay loop muted></video>
+  </div>
+
+  <!-- Authentication Dialog Modal -->
+  <div id="loginModal" class="modal-overlay">
+    <div class="glass-dialog">
+      <div class="brand-tag">
+        <i class="fa-solid fa-layer-group"></i> 3Sixty Notification Board
+      </div>
+      <h2 class="dialog-title">Authentication</h2>
+      <p class="dialog-sub">Enter your security password to log in to the operations management portal.</p>
+      
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="loginPasswordInput" class="form-input" placeholder="••••••••" />
+      </div>
+
+      <div id="loginNotif" class="notification-msg"></div>
+
+      <div class="btn-group">
+        <button id="loginSubmitBtn" class="btn-primary">Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account Not Found Prompt Modal -->
+  <div id="notFoundModal" class="modal-overlay" style="display: none;">
+    <div class="glass-dialog">
+      <h2 class="dialog-title">Account Not Found</h2>
+      <p class="dialog-sub">Password not recognized. Would you like to create an account?</p>
+      <div class="btn-group">
+        <button id="notFoundNoBtn" class="btn-secondary">No</button>
+        <button id="notFoundYesBtn" class="btn-primary">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account Creation Modal -->
+  <div id="createModal" class="modal-overlay" style="display: none;">
+    <div class="glass-dialog">
+      <h2 class="dialog-title">Create Account</h2>
+      <p class="dialog-sub">Register your employee credentials (Password must be at least 8 characters).</p>
+
+      <div class="form-group">
+        <label class="form-label">Employee Name</label>
+        <input type="text" id="regName" class="form-input" placeholder="John Doe" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Create new password (Min 8 chars)</label>
+        <input type="password" id="regPass" class="form-input" placeholder="••••••••" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Re-type password</label>
+        <input type="password" id="regPassRetype" class="form-input" placeholder="••••••••" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Security Question</label>
+        <select id="regSecQ" class="form-select">
+          <option value="">-- Select Question --</option>
+          <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+          <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+          <option value="What was the model of your first car?">What was the model of your first car?</option>
+          <option value="In what city were you born?">In what city were you born?</option>
+          <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+          <option value="What was the name of your elementary school?">What was the name of your elementary school?</option>
+          <option value="What is your favorite book?">What is your favorite book?</option>
+          <option value="What is the name of your favorite teacher?">What is the name of your favorite teacher?</option>
+          <option value="What is your favorite movie?">What is your favorite movie?</option>
+          <option value="In what city did your parents meet?">In what city did your parents meet?</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Security Answer</label>
+        <input type="password" id="regSecA" class="form-input" placeholder="Answer" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Re-type Security Answer</label>
+        <input type="password" id="regSecARetype" class="form-input" placeholder="Re-type Answer" />
+      </div>
+
+      <div id="regNotif" class="notification-msg"></div>
+
+      <div class="btn-group">
+        <button id="regCancelBtn" class="btn-secondary">Cancel</button>
+        <button id="regSubmitBtn" class="btn-primary" disabled>Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand-section">
+      <!-- Clickable 3Sixty Brand Logo -->
+      <a href="javascript:void(0)" id="brandLogo" class="brand-logo" title="Click to toggle board views">3Sixty</a>
+      
+      <!-- Top Tagline with Animation -->
+      <div class="tagline-wrapper" id="headerTagline">
+        <span>Employee stays,</span>
+        <div class="tagline-slider">
+          <span>global</span>
+          <span>simplified</span>
+          <span>compliant</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <div class="live-clock-pill">
+        <i class="fa-regular fa-clock" style="color: #60a5fa;"></i>
+        <span id="liveClockDisplay">--:--:--</span>
+      </div>
+      <a href="https://stay3Sixty.com" target="_blank" class="company-btn">
+        <span>stay3Sixty.com</span>
+        <i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i>
+      </a>
+    </div>
+  </header>
+
+  <div class="dashboard-wrapper" id="dashboardWrapper">
+    <!-- Container 1: Navigation Sidebar -->
+    <div class="left-nav-container">
+      <div class="nav-menu-title">Navigation</div>
+      <button id="navAccMgmtBtn" class="nav-item-btn" onclick="switchView('accMgmtView', this)">
+        <i class="fa-solid fa-user-gear"></i> Account Management
+      </button>
+      <button id="navProdBtn" class="nav-item-btn active" onclick="switchView('prodView', this)">
+        <i class="fa-solid fa-chart-line"></i> Production Perspective
+      </button>
+      <button id="navQaBtn" class="nav-item-btn" onclick="switchView('qaView', this)">
+        <i class="fa-solid fa-clipboard-check"></i> QA Perspective
+      </button>
+      <button id="navRtaBtn" class="nav-item-btn" onclick="switchView('rtaView', this)">
+        <i class="fa-solid fa-clock-rotate-left"></i> RTA Perspective
+      </button>
+      <button id="navAgentBtn" class="nav-item-btn" onclick="switchView('agentView', this)">
+        <i class="fa-solid fa-headset"></i> Agent Perspective
+      </button>
+    </div>
+
+    <!-- Container 2: Main Perspective Content Views -->
+    <div class="right-content-container">
+      <div id="accMgmtView" class="view-panel">
+        <div class="account-card">
+          <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Account Management</h2>
+          <p id="accSubtext" style="color: var(--text-muted); margin-bottom: 2rem;">Manage your credentials and security preferences.</p>
+
+          <div style="max-width: 650px;">
+            <div class="form-group">
+              <label class="form-label">Employee Name</label>
+              <input type="text" id="accName" class="form-input" disabled />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Create New Password (Min 8 chars)</label>
+              <input type="password" id="accNewPass" class="form-input" placeholder="••••••••" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Re-type New Password</label>
+              <input type="password" id="accNewPassRetype" class="form-input" placeholder="••••••••" />
+            </div>
+
+            <div class="form-group" id="accSecQDropdownGroup">
+              <label class="form-label">Security Question</label>
+              <select id="accSecQ" class="form-select">
+                <option value="">-- Select Question --</option>
+                <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                <option value="What was the model of your first car?">What was the model of your first car?</option>
+                <option value="In what city were you born?">In what city were you born?</option>
+                <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+                <option value="What was the name of your elementary school?">What was the name of your elementary school?</option>
+                <option value="What is your favorite book?">What is your favorite book?</option>
+                <option value="What is the name of your favorite teacher?">What is the name of your favorite teacher?</option>
+                <option value="What is your favorite movie?">What is your favorite movie?</option>
+                <option value="In what city did your parents meet?">In what city did your parents meet?</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="accSecQFixedGroup" style="display: none;">
+              <label class="form-label">Security Question (Locked)</label>
+              <input type="text" id="accSecQFixed" class="form-input" disabled />
+            </div>
+
+            <div class="form-group" id="accSecAGroup">
+              <label class="form-label">Security Answer</label>
+              <input type="password" id="accSecA" class="form-input" placeholder="Answer" />
+            </div>
+
+            <div class="form-group" id="accSecARetypeGroup">
+              <label class="form-label">Re-type Security Answer</label>
+              <input type="password" id="accSecARetype" class="form-input" placeholder="Re-type Answer" />
+            </div>
+
+            <div class="form-group" id="accVerifySecAGroup" style="display: none;">
+              <label class="form-label">Security Answer Verification (Required to change password)</label>
+              <input type="password" id="accVerifySecA" class="form-input" placeholder="Enter security answer" />
+            </div>
+
+            <div id="accNotif" class="notification-msg"></div>
+
+            <button id="saveAccBtn" class="btn-primary" style="width: 100%; margin-top: 1rem;">Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="prodView" class="view-panel active">
+        <div class="board-card">
+          <div class="table-scroll-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date / Time</th>
+                  <th>Agent</th>
+                  <th>Case ID</th>
+                  <th style="width: 38%;">Aging Bar (Max 2h)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="caseTableBody">
+                <!-- Dynamically injected via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="qaView" class="view-panel">
+        <div class="board-card"><h2>QA Perspective</h2><p style="color: var(--text-muted); margin-top: 1rem;">Quality Assurance monitoring panel.</p></div>
+      </div>
+      <div id="rtaView" class="view-panel">
+        <div class="board-card"><h2>RTA Perspective</h2><p style="color: var(--text-muted); margin-top: 1rem;">Real-Time Analytics panel.</p></div>
+      </div>
+      <div id="agentView" class="view-panel">
+        <div class="board-card"><h2>Agent Perspective</h2><p style="color: var(--text-muted); margin-top: 1rem;">Individual agent metrics view.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
