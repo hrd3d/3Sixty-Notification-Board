@@ -5,20 +5,26 @@ const LOCAL_STORAGE_KEY = "3sixty_cases_cache";
 let currentEmployee = null;
 let wakeLockObj = null;
 let syncIntervalId = null;
-let lastCasesDataHash = "";
+let lastRawCasesData = [];
 
-// Live Clock
+// Live Clock & Real-time Aging Sync (Every Second)
 function startLiveClock() {
   const clockEl = document.getElementById("liveClockDisplay");
   if (!clockEl) return;
 
-  function updateClock() {
+  function updateClockAndAging() {
     const now = new Date();
     clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + 
                           now.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+    // Live update dynamic aging progress bars synchronized with current second
+    if (lastRawCasesData && lastRawCasesData.length > 0) {
+      updateAgingProgressBars(now);
+    }
   }
-  updateClock();
-  setInterval(updateClock, 1000);
+
+  updateClockAndAging();
+  setInterval(updateClockAndAging, 1000);
 }
 
 // Anti-Screenlock Wake Lock Feature
@@ -132,6 +138,7 @@ function fetchCases() {
   if (cachedData && tbody && tbody.children.length === 0) {
     try {
       const parsed = JSON.parse(cachedData);
+      lastRawCasesData = parsed;
       renderTable(parsed);
     } catch(e) {}
   } else if (tbody && tbody.children.length === 0) {
@@ -157,14 +164,9 @@ function renderSkeletonLoader() {
 
 window.handleData = function(result) {
   if (result && result.status === "success" && result.data) {
-    const jsonStr = JSON.stringify(result.data);
-    
-    // Only re-render if data has changed to prevent DOM reflow overhead
-    if (jsonStr !== lastCasesDataHash) {
-      lastCasesDataHash = jsonStr;
-      localStorage.setItem(LOCAL_STORAGE_KEY, jsonStr);
-      renderTable(result.data);
-    }
+    lastRawCasesData = result.data;
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(result.data));
+    renderTable(result.data);
   } else if (result && result.status === "success" && result.data.length === 0) {
     document.getElementById("caseTableBody").innerHTML = `
       <tr>
@@ -220,6 +222,9 @@ function renderTable(cases) {
   processedCases.forEach(item => {
     const tr = document.createElement("tr");
     tr.className = "case-row";
+    tr.setAttribute("data-case-id", item.caseId);
+    tr.setAttribute("data-time-ms", item.isValidDate ? item.caseTime.getTime() : 0);
+    tr.setAttribute("data-raw-status", item.status);
 
     const elapsedMinutes = item.elapsedMinutes;
     let isOngoing = item.status === "ONGOING";
@@ -276,12 +281,12 @@ function renderTable(cases) {
             </div>
           </div>
           <div class="aging-meta">
-            <span>${elapsedText}</span>
-            <span>${isCompleted ? 'Completed' : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours')}</span>
+            <span class="elapsed-text-label">${elapsedText}</span>
+            <span class="status-label">${isCompleted ? 'Completed' : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours')}</span>
           </div>
         </div>
       </td>
-      <td>${statusBadgeHtml}</td>
+      <td class="status-cell">${statusBadgeHtml}</td>
     `;
 
     fragment.appendChild(tr);
@@ -289,6 +294,78 @@ function renderTable(cases) {
 
   tbody.innerHTML = "";
   tbody.appendChild(fragment);
+}
+
+// REAL-TIME SECOND-BY-SECOND AGING SYNC
+function updateAgingProgressBars(now) {
+  const rows = document.querySelectorAll("#caseTableBody tr.case-row");
+  rows.forEach(tr => {
+    const timeMs = parseInt(tr.getAttribute("data-time-ms") || "0", 10);
+    const rawStatus = tr.getAttribute("data-raw-status") || "ONGOING";
+
+    if (!timeMs) return;
+
+    const elapsedMs = Math.max(0, now.getTime() - timeMs);
+    const elapsedMinutes = Math.floor(elapsedMs / (1000 * 60));
+
+    let isOngoing = rawStatus === "ONGOING";
+    let isCompleted = rawStatus === "COMPLETED";
+    let isUnfulfilled = rawStatus === "UNFULFILLED";
+
+    if (elapsedMinutes >= MAX_AGING_MINUTES && isOngoing) {
+      isUnfulfilled = true;
+      isOngoing = false;
+    }
+
+    let percent = Math.min(100, (elapsedMinutes / MAX_AGING_MINUTES) * 100);
+
+    let barColor = "#eab308";
+    if (elapsedMinutes >= MAX_AGING_MINUTES || isUnfulfilled) {
+      barColor = "#ef4444";
+    } else if (elapsedMinutes >= 90) {
+      barColor = "#f97316";
+    }
+
+    const fillEl = tr.querySelector(".aging-fill");
+    const elapsedLabel = tr.querySelector(".elapsed-text-label");
+    const statusLabel = tr.querySelector(".status-label");
+    const statusCell = tr.querySelector(".status-cell");
+
+    if (fillEl) {
+      fillEl.style.width = `${percent}%`;
+      fillEl.style.backgroundColor = barColor;
+
+      if (isOngoing && !isCompleted && !isUnfulfilled) {
+        fillEl.classList.add("animated");
+      } else {
+        fillEl.classList.remove("animated");
+      }
+    }
+
+    if (elapsedLabel) {
+      if (elapsedMinutes >= 60) {
+        const hours = Math.floor(elapsedMinutes / 60);
+        const mins = elapsedMinutes % 60;
+        elapsedLabel.textContent = `${hours}h ${mins}m elapsed`;
+      } else {
+        elapsedLabel.textContent = `${elapsedMinutes} mins elapsed`;
+      }
+    }
+
+    if (statusLabel) {
+      statusLabel.textContent = isCompleted ? 'Completed' : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours');
+    }
+
+    if (statusCell) {
+      if (isCompleted) {
+        statusCell.innerHTML = `<span class="status-pill status-completed">COMPLETED</span>`;
+      } else if (isUnfulfilled) {
+        statusCell.innerHTML = `<span class="status-pill status-unfulfilled">UNFULFILLED</span>`;
+      } else {
+        statusCell.innerHTML = `<span class="status-pill status-ongoing">ONGOING</span>`;
+      }
+    }
+  });
 }
 
 function validatePasswordRules(pass) {
@@ -446,7 +523,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("accSubtext").textContent = "Manage your credentials and security preferences.";
 
         fetchCases();
-        
         if (syncIntervalId) clearInterval(syncIntervalId);
         syncIntervalId = setInterval(fetchCases, 10000);
       }
