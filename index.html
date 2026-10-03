@@ -12,6 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
+  <!-- SheetJS CDN for parsing .xlsx files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
   <style>
     :root {
       --font-main: 'Plus Jakarta Sans', sans-serif;
@@ -38,7 +41,7 @@
       position: relative;
     }
 
-    /* 3Sixty Modern Exterior Building Background */
+    /* Background Layer */
     .bg-hero-container {
       position: fixed;
       top: 0;
@@ -54,7 +57,6 @@
       transition: filter 0.4s ease;
     }
 
-    /* Vignette Overlay */
     .bg-overlay {
       position: fixed;
       top: 0;
@@ -87,7 +89,6 @@
       gap: 1.2rem;
     }
 
-    /* Official Brand Logo styling */
     .brand-logo-wrapper {
       display: inline-flex;
       align-items: center;
@@ -118,7 +119,6 @@
       color: #ffffff;
     }
 
-    /* Header Tagline */
     .tagline-wrapper {
       display: inline-flex;
       align-items: center;
@@ -165,7 +165,6 @@
       100% { opacity: 0; transform: translateX(100%); }
     }
 
-    /* Hero Typography Overlay */
     .hero-text-overlay {
       position: fixed;
       top: 25%;
@@ -229,7 +228,6 @@
       top: -0.45em;
     }
 
-    /* Default Hero View */
     body.ui-hidden .dashboard-wrapper {
       opacity: 0;
       transform: translateY(15px);
@@ -272,7 +270,6 @@
       backdrop-filter: blur(8px);
     }
 
-    /* Dashboard Wrapper & Glass Containers */
     .dashboard-wrapper {
       position: relative;
       z-index: 10;
@@ -285,7 +282,6 @@
       transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s ease;
     }
 
-    /* Container 1: Left Navigation Sidebar */
     .left-nav-container {
       width: 250px;
       flex-shrink: 0;
@@ -337,7 +333,6 @@
       pointer-events: none;
     }
 
-    /* Container 2: Main Content Panel */
     .right-content-container {
       flex-grow: 1;
       height: 100%;
@@ -369,14 +364,11 @@
     .table-scroll-container {
       flex-grow: 1;
       height: 100%;
-      overflow-y: scroll;
+      overflow-y: auto;
+      overflow-x: auto;
       -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-
-    .table-scroll-container::-webkit-scrollbar {
-      display: none;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.3) transparent;
     }
 
     table {
@@ -388,7 +380,7 @@
     th {
       position: sticky;
       top: 0;
-      background: rgba(11, 19, 32, 0.65);
+      background: rgba(11, 19, 32, 0.85);
       backdrop-filter: blur(10px);
       z-index: 10;
       text-align: left;
@@ -398,6 +390,7 @@
       text-transform: uppercase;
       letter-spacing: 1.2px;
       font-weight: 700;
+      white-space: nowrap;
     }
 
     tr.case-row {
@@ -416,30 +409,34 @@
     td {
       padding: 1.15rem 1.2rem;
       vertical-align: middle;
+      white-space: nowrap;
     }
 
     td:first-child { border-radius: 18px 0 0 18px; }
     td:last-child { border-radius: 0 18px 18px 0; }
 
-    .agent-name {
-      font-weight: 700;
-      font-size: 1.05rem;
-      color: #ffffff;
-    }
-
-    .case-id-tag {
-      display: inline-block;
-      padding: 0.45rem 1rem;
-      background: var(--pill-bg);
-      border: 1px solid var(--pill-border);
+    .guest-contact-clickable {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.4rem 0.9rem;
+      background: rgba(96, 165, 250, 0.18);
+      border: 1px solid rgba(96, 165, 250, 0.4);
+      color: #93c5fd;
       border-radius: 9999px;
-      font-family: 'Inter', monospace;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
 
-    .aging-wrapper { width: 100%; }
+    .guest-contact-clickable:hover {
+      background: rgba(96, 165, 250, 0.32);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .aging-wrapper { width: 100%; min-width: 180px; }
 
     .aging-track {
       width: 100%;
@@ -457,14 +454,9 @@
       transition: width 0.5s ease, background-color 0.5s ease;
     }
 
-    /* AGING BAR STRIPE SLIDE ANIMATION KEYFRAMES */
     @keyframes stripeSlide {
-      0% {
-        background-position: 0 0;
-      }
-      100% {
-        background-position: 24px 0;
-      }
+      0% { background-position: 0 0; }
+      100% { background-position: 24px 0; }
     }
 
     .aging-fill.animated {
@@ -510,6 +502,13 @@
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.4);
       color: #6ee7b7;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .status-completed:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
     }
 
     .status-unfulfilled {
@@ -518,20 +517,28 @@
       color: #fca5a5;
     }
 
-    /* Anti-Screenlock Stream Element */
-    #antiLockContainer {
-      position: fixed;
-      bottom: 0;
-      right: 0;
-      width: 1px;
-      height: 1px;
-      opacity: 0.01;
-      pointer-events: none;
-      z-index: -9999;
-      overflow: hidden;
+    .btn-complete-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.5rem 1.2rem;
+      border-radius: 9999px;
+      background: #10b981;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.8rem;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      transition: all 0.2s ease;
     }
 
-    /* Modal Overlays */
+    .btn-complete-action:hover {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+    }
+
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -547,12 +554,12 @@
     }
 
     .glass-dialog {
-      background: rgba(18, 28, 45, 0.82);
+      background: rgba(18, 28, 45, 0.88);
       border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 28px;
-      padding: 2.5rem;
+      padding: 2.2rem;
       width: 100%;
-      max-width: 480px;
+      max-width: 520px;
       box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
       color: #ffffff;
     }
@@ -583,13 +590,11 @@
     .dialog-sub {
       color: var(--text-muted);
       font-size: 0.92rem;
-      margin-bottom: 1.8rem;
+      margin-bottom: 1.5rem;
       line-height: 1.4;
     }
 
-    .form-group {
-      margin-bottom: 1.2rem;
-    }
+    .form-group { margin-bottom: 1.2rem; }
 
     .form-label {
       display: block;
@@ -605,34 +610,17 @@
       width: 100%;
       padding: 0.85rem 1.1rem;
       border-radius: 14px;
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(11, 19, 32, 0.85);
       border: 1px solid rgba(255, 255, 255, 0.18);
       color: #ffffff;
       font-size: 0.95rem;
       outline: none;
     }
 
-    .form-input:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-      background: rgba(255, 255, 255, 0.04);
-    }
-
     .form-select option {
-      background: #0b1320;
+      background-color: #0b1320;
       color: #ffffff;
-    }
-
-    .form-input:focus, .form-select:focus {
-      border-color: #60a5fa;
-    }
-
-    .notification-msg {
-      color: #ef4444;
-      font-size: 0.85rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      min-height: 1.2rem;
+      padding: 0.8rem;
     }
 
     .btn-group {
@@ -651,18 +639,14 @@
       border: none;
       cursor: pointer;
       transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .btn-primary:hover {
       background: #f1f5f9;
       transform: translateY(-1px);
-    }
-
-    .btn-primary:disabled {
-      background: #475569;
-      color: #94a3b8;
-      cursor: not-allowed;
-      transform: none;
     }
 
     .btn-secondary {
@@ -675,24 +659,59 @@
       cursor: pointer;
     }
 
-    .account-card {
-      background: var(--glass-panel);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--glass-border);
-      border-radius: 28px;
-      padding: 2.5rem;
-      width: 100%;
-      height: 100%;
-      overflow-y: auto;
-      scrollbar-width: none;
+    .detail-card-row {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 0.8rem;
     }
-    .account-card::-webkit-scrollbar { display: none; }
+
+    .detail-card-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+
+    .detail-card-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    /* Bottom-Center Toast Notification */
+    #bottomToast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #10b981;
+      color: #ffffff;
+      padding: 0.9rem 2.2rem;
+      border-radius: 9999px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.5);
+      z-index: 2000;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #bottomToast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
   </style>
 </head>
 <body class="ui-hidden">
 
-  <!-- Full-Screen Unsplash Corporate Building Background Layer -->
   <div class="bg-hero-container"></div>
   <div class="bg-overlay"></div>
 
@@ -709,8 +728,14 @@
     <p class="hero-subtitle">Through our Home Match<sup>TM</sup> technology.</p>
   </div>
 
-  <!-- Anti-Screenlock Stream Element -->
-  <div id="antiLockContainer">
+  <!-- Bottom Center Toast Notification -->
+  <div id="bottomToast">
+    <i class="fa-solid fa-circle-check"></i>
+    <span id="toastMsg">Task completed!</span>
+  </div>
+
+  <!-- Hidden Anti-Lock Video Stream -->
+  <div id="antiLockContainer" style="position:fixed; opacity:0.01; pointer-events:none; width:1px; height:1px;">
     <canvas id="antiLockCanvas" width="2" height="2"></canvas>
     <video id="antiLockVideo" playsinline autoplay loop muted></video>
   </div>
@@ -730,7 +755,7 @@
         <input type="password" id="loginPasswordInput" class="form-input" placeholder="••••••••" />
       </div>
 
-      <div id="loginNotif" class="notification-msg"></div>
+      <div id="loginNotif" style="color: #ef4444; font-size: 0.85rem; font-weight: 700; margin-bottom: 1rem; min-height: 1.2rem;"></div>
 
       <div class="btn-group">
         <button id="loginSubmitBtn" class="btn-primary">Login</button>
@@ -777,14 +802,14 @@
           <option value="">-- Select Question --</option>
           <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
           <option value="What was the name of your first pet?">What was the name of your first pet?</option>
-          <option value="What was the model of your first car?">What was the model of your first car?</option>
-          <option value="In what city were you born?">In what city were you born?</option>
-          <option value="What was your childhood nickname?">What was your childhood nickname?</option>
-          <option value="What was the name of your elementary school?">What was the name of your elementary school?</option>
-          <option value="What is your favorite book?">What is your favorite book?</option>
-          <option value="What is the name of your favorite teacher?">What is the name of your favorite teacher?</option>
-          <option value="What is your favorite movie?">What is your favorite movie?</option>
-          <option value="In what city did your parents meet?">In what city did your parents meet?</option>
+          <option value="What was the name of your first elementary school?">What was the name of your first elementary school?</option>
+          <option value="In what city or town was your first job?">In what city or town was your first job?</option>
+          <option value="What was the make and model of your first car?">What was the make and model of your first car?</option>
+          <option value="What is the name of the street you grew up on?">What is the name of the street you grew up on?</option>
+          <option value="What was your favorite childhood food?">What was your favorite childhood food?</option>
+          <option value="What was the title of your favorite book in high school?">What was the title of your favorite book in high school?</option>
+          <option value="What is the first name of your best friend in childhood?">What is the first name of your best friend in childhood?</option>
+          <option value="What is the name of the town where your parents met?">What is the name of the town where your parents met?</option>
         </select>
       </div>
 
@@ -798,7 +823,7 @@
         <input type="password" id="regSecARetype" class="form-input" placeholder="Re-type Answer" />
       </div>
 
-      <div id="regNotif" class="notification-msg"></div>
+      <div id="regNotif" style="color: #ef4444; font-size: 0.85rem; font-weight: 700; margin-bottom: 1rem; min-height: 1.2rem;"></div>
 
       <div class="btn-group">
         <button id="regCancelBtn" class="btn-secondary">Cancel</button>
@@ -807,17 +832,99 @@
     </div>
   </div>
 
+  <!-- Guest Contact Detail Popover Modal -->
+  <div id="guestNoteModal" class="modal-overlay" style="display: none;">
+    <div class="glass-dialog">
+      <div class="brand-tag">
+        <i class="fa-solid fa-circle-info"></i> Case Information Note
+      </div>
+      <h2 class="dialog-title" style="margin-bottom: 1.2rem;">Guest Contact Details</h2>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">Case Title</div>
+        <div id="noteCaseTitle" class="detail-card-value">--</div>
+      </div>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">Guest Contact</div>
+        <div id="noteGuestContact" class="detail-card-value">--</div>
+      </div>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">Customer</div>
+        <div id="noteCustomer" class="detail-card-value">--</div>
+      </div>
+
+      <div class="btn-group">
+        <button id="closeGuestNoteBtn" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completed Time Note Modal -->
+  <div id="completedNoteModal" class="modal-overlay" style="display: none;">
+    <div class="glass-dialog">
+      <div class="brand-tag" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.3);">
+        <i class="fa-solid fa-circle-check"></i> Completion Details
+      </div>
+      <h2 class="dialog-title" style="margin-bottom: 1.2rem;">Task Completed On</h2>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">Date / Time Completed (Col V)</div>
+        <div id="completedTimeVal" class="detail-card-value" style="color: #6ee7b7; font-size: 1.3rem;">--</div>
+      </div>
+
+      <div class="btn-group">
+        <button id="closeCompletedNoteBtn" class="btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complete Task Confirmation Dialog Modal -->
+  <div id="completeConfirmModal" class="modal-overlay" style="display: none;">
+    <div class="glass-dialog">
+      <div class="brand-tag" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.3);">
+        <i class="fa-solid fa-check"></i> Confirm Completion
+      </div>
+      <h2 class="dialog-title" style="font-size: 1.5rem; margin-bottom: 0.4rem;">We are tagging the task as COMPLETED. Proceed?</h2>
+      <p class="dialog-sub">Verify the case details before confirming completion.</p>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">First Email On</div>
+        <div id="confirmFirstEmail" class="detail-card-value">--</div>
+      </div>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">Case Title</div>
+        <div id="confirmCaseTitle" class="detail-card-value">--</div>
+      </div>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">Guest Contact</div>
+        <div id="confirmGuestContact" class="detail-card-value">--</div>
+      </div>
+
+      <div class="detail-card-row">
+        <div class="detail-card-label">Customer</div>
+        <div id="confirmCustomer" class="detail-card-value">--</div>
+      </div>
+
+      <div class="btn-group">
+        <button id="cancelCompleteBtn" class="btn-secondary">Cancel</button>
+        <button id="proceedCompleteBtn" class="btn-primary" style="background: #10b981; color: #ffffff;">Proceed</button>
+      </div>
+    </div>
+  </div>
+
   <header>
     <div class="brand-section">
-      <!-- Clickable Official 3Sixty Brand Logo & Text -->
       <a href="javascript:void(0)" id="brandLogo" class="brand-logo-wrapper" title="Click to toggle board views">
         <img src="https://stay3sixty.com/favicon.ico" alt="3Sixty Logo" class="brand-logo-img" />
         <span class="brand-logo-text">3Sixty</span>
       </a>
       
-      <!-- Top Tagline with Animation -->
       <div class="tagline-wrapper" id="headerTagline">
-        <span>Employee Stays,</span>
+        <span>Employee stays,</span>
         <div class="tagline-slider">
           <span>global</span>
           <span>simplified</span>
@@ -835,7 +942,7 @@
   </header>
 
   <div class="dashboard-wrapper" id="dashboardWrapper">
-    <!-- Container 1: Navigation Sidebar -->
+    <!-- Left Navigation Sidebar -->
     <div class="left-nav-container">
       <div class="nav-menu-title">Navigation</div>
       <button id="navAccMgmtBtn" class="nav-item-btn" onclick="switchView('accMgmtView', this)">
@@ -843,9 +950,6 @@
       </button>
       <button id="navProdBtn" class="nav-item-btn active" onclick="switchView('prodView', this)">
         <i class="fa-solid fa-chart-line"></i> Production Perspective
-      </button>
-      <button id="navQaBtn" class="nav-item-btn" onclick="switchView('qaView', this)">
-        <i class="fa-solid fa-clipboard-check"></i> QA Perspective
       </button>
       <button id="navRtaBtn" class="nav-item-btn" onclick="switchView('rtaView', this)">
         <i class="fa-solid fa-clock-rotate-left"></i> RTA Perspective
@@ -855,10 +959,10 @@
       </button>
     </div>
 
-    <!-- Container 2: Main Perspective Content Views -->
+    <!-- Main Content Panel -->
     <div class="right-content-container">
       <div id="accMgmtView" class="view-panel">
-        <div class="account-card">
+        <div class="board-card">
           <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Account Management</h2>
           <p id="accSubtext" style="color: var(--text-muted); margin-bottom: 2rem;">Manage your credentials and security preferences.</p>
 
@@ -884,14 +988,14 @@
                 <option value="">-- Select Question --</option>
                 <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
                 <option value="What was the name of your first pet?">What was the name of your first pet?</option>
-                <option value="What was the model of your first car?">What was the model of your first car?</option>
-                <option value="In what city were you born?">In what city were you born?</option>
-                <option value="What was your childhood nickname?">What was your childhood nickname?</option>
-                <option value="What was the name of your elementary school?">What was the name of your elementary school?</option>
-                <option value="What is your favorite book?">What is your favorite book?</option>
-                <option value="What is the name of your favorite teacher?">What is the name of your favorite teacher?</option>
-                <option value="What is your favorite movie?">What is your favorite movie?</option>
-                <option value="In what city did your parents meet?">In what city did your parents meet?</option>
+                <option value="What was the name of your first elementary school?">What was the name of your first elementary school?</option>
+                <option value="In what city or town was your first job?">In what city or town was your first job?</option>
+                <option value="What was the make and model of your first car?">What was the make and model of your first car?</option>
+                <option value="What is the name of the street you grew up on?">What is the name of the street you grew up on?</option>
+                <option value="What was your favorite childhood food?">What was your favorite childhood food?</option>
+                <option value="What was the title of your favorite book in high school?">What was the title of your favorite book in high school?</option>
+                <option value="What is the first name of your best friend in childhood?">What is the first name of your best friend in childhood?</option>
+                <option value="What is the name of the town where your parents met?">What is the name of the town where your parents met?</option>
               </select>
             </div>
 
@@ -911,46 +1015,115 @@
             </div>
 
             <div class="form-group" id="accVerifySecAGroup" style="display: none;">
-              <label class="form-label">Security Answer Verification (Required to change password)</label>
+              <label class="form-label">Security Answer Verification</label>
               <input type="password" id="accVerifySecA" class="form-input" placeholder="Enter security answer" />
             </div>
 
-            <div id="accNotif" class="notification-msg"></div>
+            <div id="accNotif" style="color: #ef4444; font-size: 0.85rem; font-weight: 700; margin-bottom: 1rem; min-height: 1.2rem;"></div>
 
             <button id="saveAccBtn" class="btn-primary" style="width: 100%; margin-top: 1rem;">Save Changes</button>
           </div>
         </div>
       </div>
 
+      <!-- Production Perspective -->
       <div id="prodView" class="view-panel active">
         <div class="board-card">
           <div class="table-scroll-container">
             <table>
               <thead>
                 <tr>
-                  <th>Date / Time</th>
-                  <th>Agent</th>
-                  <th>Case ID</th>
-                  <th style="width: 38%;">Aging Bar (Max 2h)</th>
+                  <th>First Email On</th>
+                  <th id="thCreatedBy">Created By</th>
+                  <th>Guest Contact</th>
+                  <th style="width: 35%;">Aging Bar (Max 2h)</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody id="caseTableBody">
-                <!-- Dynamically injected via app.js -->
+                <!-- Dynamically rendered via app.js -->
               </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <div id="qaView" class="view-panel">
-        <div class="board-card"><h2>QA Perspective</h2><p style="color: var(--text-muted); margin-top: 1rem;">Quality Assurance monitoring panel.</p></div>
-      </div>
+      <!-- RTA Perspective -->
       <div id="rtaView" class="view-panel">
-        <div class="board-card"><h2>RTA Perspective</h2><p style="color: var(--text-muted); margin-top: 1rem;">Real-Time Analytics panel.</p></div>
+        <div class="board-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; gap: 1rem; flex-wrap: wrap;">
+            <div>
+              <h2 style="font-size: 1.6rem; font-weight: 800;">RTA Perspective</h2>
+              <p style="color: var(--text-muted); font-size: 0.88rem;">Import and review complete raw case records from Google Sheet "raw".</p>
+            </div>
+            
+            <div>
+              <input type="file" id="xlsxFileInput" accept=".xlsx" style="display: none;" />
+              <button id="importFileBtn" class="btn-primary">
+                <i class="fa-solid fa-file-import"></i> Import File
+              </button>
+            </div>
+          </div>
+
+          <div id="importNotif" style="font-size: 0.88rem; font-weight: 700; margin-bottom: 0.8rem; display: none;"></div>
+
+          <div class="table-scroll-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Case Title</th>
+                  <th>Priority</th>
+                  <th>Case Category New</th>
+                  <th>Guest Contact</th>
+                  <th>Customer</th>
+                  <th>Owner</th>
+                  <th>Status Reason</th>
+                  <th>Created On</th>
+                  <th>Created By</th>
+                  <th>First Email On</th>
+                  <th>First Email By</th>
+                  <th>Last Activity On</th>
+                  <th>Last Activity By</th>
+                  <th>Last Priority On</th>
+                  <th>Last Priority By</th>
+                  <th>First Escalation Email On</th>
+                  <th>First Escalation Email By</th>
+                </tr>
+              </thead>
+              <tbody id="rtaTableBody">
+                <!-- Dynamically rendered via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
+
+      <!-- Agent Perspective -->
       <div id="agentView" class="view-panel">
-        <div class="board-card"><h2>Agent Perspective</h2><p style="color: var(--text-muted); margin-top: 1rem;">Individual agent metrics view.</p></div>
+        <div class="board-card">
+          <div style="margin-bottom: 1.2rem;">
+            <h2 style="font-size: 1.6rem; font-weight: 800;">Agent Perspective</h2>
+            <p style="color: var(--text-muted); font-size: 0.88rem;">Assigned case tasks and active aging timers.</p>
+          </div>
+
+          <div class="table-scroll-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>First Email On</th>
+                  <th>Case Title</th>
+                  <th>Guest Contact</th>
+                  <th>Customer</th>
+                  <th style="width: 32%;">Aging Progress Bar</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="agentTableBody">
+                <!-- Dynamically rendered via app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
