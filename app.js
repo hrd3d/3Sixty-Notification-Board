@@ -1,13 +1,15 @@
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNaXD5Yby9yqS5QHdCuXwS1xRKw500Aq0ZPG5v8nSW3mbBDbOXeZUlOCn2FJldXg-lfQ/exec"; 
 const MAX_AGING_MINUTES = 120;
-const LOCAL_STORAGE_KEY = "3sixty_cases_cache";
+const LOCAL_STORAGE_KEY = "3sixty_cases_cache_v3";
 
 let currentEmployee = null;
 let wakeLockObj = null;
 let syncIntervalId = null;
 let lastRawCasesData = [];
+let pendingCompleteRowIndex = null;
+let pendingCompleteElapsedMinutes = 0;
 
-// Live Clock & Real-time Aging Sync (Every Second)
+// Live Clock & Real-time Aging Sync
 function startLiveClock() {
   const clockEl = document.getElementById("liveClockDisplay");
   if (!clockEl) return;
@@ -17,7 +19,6 @@ function startLiveClock() {
     clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + 
                           now.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
-    // Live update dynamic aging progress bars synchronized with current second
     if (lastRawCasesData && lastRawCasesData.length > 0) {
       updateAgingProgressBars(now);
     }
@@ -37,9 +38,7 @@ async function initAntiScreenLock() {
           wakeLockObj = await navigator.wakeLock.request('screen');
         }
       });
-    } catch (err) {
-      console.log('Wake Lock initialized via fallback stream');
-    }
+    } catch (err) {}
   }
 
   try {
@@ -48,7 +47,6 @@ async function initAntiScreenLock() {
     if (canvas && video) {
       const ctx = canvas.getContext('2d');
       let colorToggle = false;
-      
       setInterval(() => {
         ctx.fillStyle = colorToggle ? '#000000' : '#010101';
         ctx.fillRect(0, 0, 2, 2);
@@ -60,12 +58,9 @@ async function initAntiScreenLock() {
         video.play().catch(() => {});
       }
     }
-  } catch (e) {
-    console.log('Anti-lock video stream active');
-  }
+  } catch (e) {}
 }
 
-// Toggle Views on 3Sixty Brand Logo Click
 function setupLogoToggle() {
   const logoBtn = document.getElementById("brandLogo");
   if (!logoBtn) return;
@@ -86,6 +81,22 @@ function setNavLock(locked) {
       btn.classList.remove("disabled");
     }
   });
+}
+
+// Apply Role-Based Navigation and View Limits
+function applyRolePermissions() {
+  const rtaBtn = document.getElementById("navRtaBtn");
+  const createdByTh = document.getElementById("thCreatedBy");
+  
+  const isAgent = currentEmployee && currentEmployee.role === "AGENT";
+
+  if (isAgent) {
+    if (rtaBtn) rtaBtn.style.display = "none";
+    if (createdByTh) createdByTh.style.display = "none";
+  } else {
+    if (rtaBtn) rtaBtn.style.display = "flex";
+    if (createdByTh) createdByTh.style.display = "table-cell";
+  }
 }
 
 function switchView(viewId, btnEl) {
@@ -124,13 +135,9 @@ function resetButtonStates() {
     loginBtn.textContent = "Login";
     loginBtn.removeAttribute("disabled");
   }
-  const regBtn = document.getElementById("regSubmitBtn");
-  if (regBtn) {
-    regBtn.textContent = "Submit";
-  }
 }
 
-// INSTANT FETCH & CACHE WITH LOADING SKELETON
+// FETCH DATA & RENDER ALL VIEWS
 function fetchCases() {
   const cachedData = localStorage.getItem(LOCAL_STORAGE_KEY);
   const tbody = document.getElementById("caseTableBody");
@@ -139,79 +146,69 @@ function fetchCases() {
     try {
       const parsed = JSON.parse(cachedData);
       lastRawCasesData = parsed;
-      renderTable(parsed);
+      renderProductionTable(parsed);
+      renderRtaTable(parsed);
+      renderAgentTable(parsed);
     } catch(e) {}
-  } else if (tbody && tbody.children.length === 0) {
-    renderSkeletonLoader();
   }
 
   makeApiCall({ action: "getCases" }, "handleData");
-}
-
-function renderSkeletonLoader() {
-  const tbody = document.getElementById("caseTableBody");
-  if (!tbody) return;
-  tbody.innerHTML = Array(5).fill(0).map(() => `
-    <tr class="case-row" style="opacity: 0.4;">
-      <td><div style="height: 18px; width: 110px; background: rgba(255,255,255,0.18); border-radius: 6px;"></div></td>
-      <td><div style="height: 18px; width: 140px; background: rgba(255,255,255,0.18); border-radius: 6px;"></div></td>
-      <td><div style="height: 24px; width: 160px; background: rgba(255,255,255,0.18); border-radius: 12px;"></div></td>
-      <td><div style="height: 12px; width: 100%; background: rgba(255,255,255,0.18); border-radius: 6px;"></div></td>
-      <td><div style="height: 24px; width: 80px; background: rgba(255,255,255,0.18); border-radius: 12px;"></div></td>
-    </tr>
-  `).join("");
 }
 
 window.handleData = function(result) {
   if (result && result.status === "success" && result.data) {
     lastRawCasesData = result.data;
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(result.data));
-    renderTable(result.data);
-  } else if (result && result.status === "success" && result.data.length === 0) {
-    document.getElementById("caseTableBody").innerHTML = `
-      <tr>
-        <td colspan="5" style="text-align: center; padding: 2rem; color: #cbd5e1;">
-          No active cases found in Google Sheet ("raw").
-        </td>
-      </tr>`;
+    renderProductionTable(result.data);
+    renderRtaTable(result.data);
+    renderAgentTable(result.data);
   }
 };
 
-// HIGH-PERFORMANCE DOCUMENT FRAGMENT BATCH RENDERING
-function renderTable(cases) {
+// PRODUCTION PERSPECTIVE TABLE RENDER
+function renderProductionTable(cases) {
   const tbody = document.getElementById("caseTableBody");
   if (!tbody) return;
 
+  if (!cases || cases.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: #cbd5e1;">No cases found in Google Sheet ("raw").</td></tr>`;
+    return;
+  }
+
   const now = new Date();
   const fragment = document.createDocumentFragment();
+  const isAgentRole = currentEmployee && currentEmployee.role === "AGENT";
 
-  const processedCases = cases.map(item => {
-    let agentStr = item.agent || "";
-    let dateStr = item.dateTime || "";
+  const processedCases = cases.map(row => {
+    const caseTitle = row[3] || "N/A";
+    const guestContact = row[6] || "N/A";
+    const customer = row[7] || "N/A";
+    const createdBy = row[11] || "Unassigned";
+    const firstEmailOn = row[12] || "";
+    const colUStatus = (row[20] || "ONGOING").toString().trim().toUpperCase();
+    const completedTimeStamp = row[21] || "";
+    const sheetRowIndex = row[22];
 
-    if ((agentStr.includes("GMT") || agentStr.includes("2026") || agentStr.includes("2025")) && !dateStr.includes("GMT")) {
-      const temp = agentStr;
-      agentStr = dateStr;
-      dateStr = temp;
+    let cleanDateStr = firstEmailOn.replace(/\(.*\)/, '').trim();
+    let emailTime = new Date(cleanDateStr);
+    if (isNaN(emailTime.getTime()) && firstEmailOn) {
+      emailTime = new Date(firstEmailOn);
     }
 
-    let cleanDateStr = dateStr.replace(/\(.*\)/, '').trim();
-    let caseTime = new Date(cleanDateStr);
-
-    if (isNaN(caseTime.getTime()) && dateStr) {
-      caseTime = new Date(dateStr);
-    }
-
-    const isValidDate = !isNaN(caseTime.getTime());
-    const elapsedMs = isValidDate ? (now - caseTime) : 0;
+    const isValidDate = !isNaN(emailTime.getTime());
+    const elapsedMs = isValidDate ? (now - emailTime) : 0;
     const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / (1000 * 60)));
 
     return {
-      agent: agentStr || "Unassigned",
-      caseId: item.caseId || "N/A",
-      status: item.status || "ONGOING",
-      dateTime: dateStr,
-      caseTime,
+      caseTitle,
+      guestContact,
+      customer,
+      createdBy,
+      firstEmailOn,
+      colUStatus,
+      completedTimeStamp,
+      sheetRowIndex,
+      emailTime,
       isValidDate,
       elapsedMinutes
     };
@@ -222,19 +219,13 @@ function renderTable(cases) {
   processedCases.forEach(item => {
     const tr = document.createElement("tr");
     tr.className = "case-row";
-    tr.setAttribute("data-case-id", item.caseId);
-    tr.setAttribute("data-time-ms", item.isValidDate ? item.caseTime.getTime() : 0);
-    tr.setAttribute("data-raw-status", item.status);
+    tr.setAttribute("data-email-time-ms", item.isValidDate ? item.emailTime.getTime() : 0);
+    tr.setAttribute("data-raw-status", item.colUStatus);
 
     const elapsedMinutes = item.elapsedMinutes;
-    let isOngoing = item.status === "ONGOING";
-    let isCompleted = item.status === "COMPLETED";
-    let isUnfulfilled = item.status === "UNFULFILLED";
-
-    if (elapsedMinutes >= MAX_AGING_MINUTES && isOngoing) {
-      isUnfulfilled = true;
-      isOngoing = false;
-    }
+    let isCompleted = item.colUStatus.startsWith("COMPLETED");
+    let isUnfulfilled = item.colUStatus === "UNFULFILLED" || (elapsedMinutes >= MAX_AGING_MINUTES && !isCompleted);
+    let isOngoing = !isCompleted && !isUnfulfilled;
 
     let percent = Math.min(100, (elapsedMinutes / MAX_AGING_MINUTES) * 100);
 
@@ -246,33 +237,34 @@ function renderTable(cases) {
     }
 
     const formattedDate = item.isValidDate 
-      ? item.caseTime.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      : (item.dateTime || "N/A");
+      ? item.emailTime.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      : (item.firstEmailOn || "N/A");
 
-    let elapsedText = "";
-    if (elapsedMinutes >= 60) {
-      const hours = Math.floor(elapsedMinutes / 60);
-      const mins = elapsedMinutes % 60;
-      elapsedText = `${hours}h ${mins}m elapsed`;
-    } else {
-      elapsedText = `${elapsedMinutes} mins elapsed`;
-    }
+    let elapsedText = elapsedMinutes >= 60 
+      ? `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m elapsed` 
+      : `${elapsedMinutes} mins elapsed`;
 
     let statusBadgeHtml = "";
-    let shouldAnimate = isOngoing && !isCompleted && !isUnfulfilled;
-
     if (isCompleted) {
-      statusBadgeHtml = `<span class="status-pill status-completed">COMPLETED</span>`;
+      statusBadgeHtml = `<span class="status-pill status-completed" onclick="openCompletedNote('${escapeQuotes(item.completedTimeStamp || 'N/A')}')">${item.colUStatus}</span>`;
     } else if (isUnfulfilled) {
       statusBadgeHtml = `<span class="status-pill status-unfulfilled">UNFULFILLED</span>`;
     } else {
-      statusBadgeHtml = `<span class="status-pill status-ongoing">ONGOING</span>`;
+      statusBadgeHtml = `<span class="status-pill status-ongoing">${item.colUStatus}</span>`;
     }
+
+    let shouldAnimate = isOngoing;
+    let createdByCell = isAgentRole ? '' : `<td><span class="agent-name">${item.createdBy}</span></td>`;
 
     tr.innerHTML = `
       <td style="color: #cbd5e1; font-size: 0.9rem;">${formattedDate}</td>
-      <td><span class="agent-name">${item.agent}</span></td>
-      <td><span class="case-id-tag">${item.caseId}</span></td>
+      ${createdByCell}
+      <td>
+        <span class="guest-contact-clickable" onclick="openGuestContactNote('${escapeQuotes(item.caseTitle)}', '${escapeQuotes(item.guestContact)}', '${escapeQuotes(item.customer)}')">
+          ${item.guestContact}
+          <i class="fa-solid fa-circle-info fa-xs"></i>
+        </span>
+      </td>
       <td>
         <div class="aging-wrapper">
           <div class="aging-track">
@@ -282,7 +274,7 @@ function renderTable(cases) {
           </div>
           <div class="aging-meta">
             <span class="elapsed-text-label">${elapsedText}</span>
-            <span class="status-label">${isCompleted ? 'Completed' : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours')}</span>
+            <span class="status-label">${isCompleted ? item.colUStatus : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours')}</span>
           </div>
         </div>
       </td>
@@ -296,26 +288,165 @@ function renderTable(cases) {
   tbody.appendChild(fragment);
 }
 
-// REAL-TIME SECOND-BY-SECOND AGING SYNC
+// AGENT PERSPECTIVE TABLE RENDER
+function renderAgentTable(cases) {
+  const tbody = document.getElementById("agentTableBody");
+  if (!tbody) return;
+
+  if (!currentEmployee || !currentEmployee.name) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #cbd5e1;">Please log in to view assigned agent cases.</td></tr>`;
+    return;
+  }
+
+  const empName = currentEmployee.name.trim().toLowerCase();
+  const now = new Date();
+  const fragment = document.createDocumentFragment();
+
+  const filteredCases = cases.filter(row => {
+    const createdBy = (row[11] || "").toString().trim().toLowerCase();
+    return createdBy === empName;
+  });
+
+  if (filteredCases.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #cbd5e1;">No cases assigned to ${currentEmployee.name}.</td></tr>`;
+    return;
+  }
+
+  filteredCases.forEach(row => {
+    const caseTitle = row[3] || "N/A";
+    const guestContact = row[6] || "N/A";
+    const customer = row[7] || "N/A";
+    const firstEmailOn = row[12] || "";
+    const colUStatus = (row[20] || "ONGOING").toString().trim().toUpperCase();
+    const sheetRowIndex = row[22];
+
+    let cleanDateStr = firstEmailOn.replace(/\(.*\)/, '').trim();
+    let emailTime = new Date(cleanDateStr);
+    if (isNaN(emailTime.getTime()) && firstEmailOn) {
+      emailTime = new Date(firstEmailOn);
+    }
+
+    const isValidDate = !isNaN(emailTime.getTime());
+    const elapsedMs = isValidDate ? (now - emailTime) : 0;
+    const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / (1000 * 60)));
+
+    let isCompleted = colUStatus.startsWith("COMPLETED");
+    let isUnfulfilled = colUStatus === "UNFULFILLED" || (elapsedMinutes >= MAX_AGING_MINUTES && !isCompleted);
+    let isOngoing = !isCompleted && !isUnfulfilled;
+
+    let percent = Math.min(100, (elapsedMinutes / MAX_AGING_MINUTES) * 100);
+
+    let barColor = "#eab308";
+    if (elapsedMinutes >= MAX_AGING_MINUTES || isUnfulfilled) {
+      barColor = "#ef4444";
+    } else if (elapsedMinutes >= 90) {
+      barColor = "#f97316";
+    }
+
+    const formattedDate = isValidDate 
+      ? emailTime.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      : (firstEmailOn || "N/A");
+
+    let elapsedText = elapsedMinutes >= 60 
+      ? `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m elapsed` 
+      : `${elapsedMinutes} mins elapsed`;
+
+    let actionCellHtml = "";
+    if (isCompleted) {
+      actionCellHtml = `<span class="status-pill status-completed">${colUStatus}</span>`;
+    } else {
+      actionCellHtml = `
+        <button class="btn-complete-action" onclick="promptCompleteTask(${sheetRowIndex}, ${elapsedMinutes}, '${escapeQuotes(formattedDate)}', '${escapeQuotes(caseTitle)}', '${escapeQuotes(guestContact)}', '${escapeQuotes(customer)}')">
+          <i class="fa-solid fa-circle-check"></i> Complete
+        </button>`;
+    }
+
+    const tr = document.createElement("tr");
+    tr.className = "case-row";
+    tr.setAttribute("data-email-time-ms", isValidDate ? emailTime.getTime() : 0);
+    tr.setAttribute("data-raw-status", colUStatus);
+
+    tr.innerHTML = `
+      <td style="color: #cbd5e1; font-size: 0.9rem;">${formattedDate}</td>
+      <td style="font-weight: 700; color: #ffffff;">${caseTitle}</td>
+      <td>
+        <span class="guest-contact-clickable" onclick="openGuestContactNote('${escapeQuotes(caseTitle)}', '${escapeQuotes(guestContact)}', '${escapeQuotes(customer)}')">
+          ${guestContact}
+          <i class="fa-solid fa-circle-info fa-xs"></i>
+        </span>
+      </td>
+      <td style="color: #cbd5e1;">${customer}</td>
+      <td>
+        <div class="aging-wrapper">
+          <div class="aging-track">
+            <div class="aging-fill ${isOngoing ? 'animated' : ''}" 
+                 style="width: ${percent}%; background-color: ${barColor};">
+            </div>
+          </div>
+          <div class="aging-meta">
+            <span class="elapsed-text-label">${elapsedText}</span>
+            <span class="status-label">${isCompleted ? colUStatus : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours')}</span>
+          </div>
+        </div>
+      </td>
+      <td>${actionCellHtml}</td>
+    `;
+
+    fragment.appendChild(tr);
+  });
+
+  tbody.innerHTML = "";
+  tbody.appendChild(fragment);
+}
+
+// RTA PERSPECTIVE TABLE RENDER (Col D to Col T)
+function renderRtaTable(cases) {
+  const tbody = document.getElementById("rtaTableBody");
+  if (!tbody) return;
+
+  if (!cases || cases.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="17" style="text-align: center; padding: 2rem; color: #cbd5e1;">No cases found in Google Sheet ("raw").</td></tr>`;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  cases.forEach(row => {
+    const tr = document.createElement("tr");
+    tr.className = "case-row";
+
+    let rowHtml = "";
+    for (let c = 3; c < 20; c++) {
+      let cellVal = row[c] || "";
+      if (cellVal.includes("T") && cellVal.includes("Z") && !isNaN(Date.parse(cellVal))) {
+        cellVal = new Date(cellVal).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
+      rowHtml += `<td style="font-size: 0.88rem; color: #cbd5e1;">${cellVal || "-"}</td>`;
+    }
+
+    tr.innerHTML = rowHtml;
+    fragment.appendChild(tr);
+  });
+
+  tbody.innerHTML = "";
+  tbody.appendChild(fragment);
+}
+
+// SECOND-BY-SECOND AGING SYNC
 function updateAgingProgressBars(now) {
-  const rows = document.querySelectorAll("#caseTableBody tr.case-row");
+  const rows = document.querySelectorAll("#caseTableBody tr.case-row, #agentTableBody tr.case-row");
   rows.forEach(tr => {
-    const timeMs = parseInt(tr.getAttribute("data-time-ms") || "0", 10);
-    const rawStatus = tr.getAttribute("data-raw-status") || "ONGOING";
+    const timeMs = parseInt(tr.getAttribute("data-email-time-ms") || "0", 10);
+    const rawStatus = (tr.getAttribute("data-raw-status") || "ONGOING").toUpperCase();
 
     if (!timeMs) return;
 
     const elapsedMs = Math.max(0, now.getTime() - timeMs);
     const elapsedMinutes = Math.floor(elapsedMs / (1000 * 60));
 
-    let isOngoing = rawStatus === "ONGOING";
-    let isCompleted = rawStatus === "COMPLETED";
-    let isUnfulfilled = rawStatus === "UNFULFILLED";
-
-    if (elapsedMinutes >= MAX_AGING_MINUTES && isOngoing) {
-      isUnfulfilled = true;
-      isOngoing = false;
-    }
+    let isCompleted = rawStatus.startsWith("COMPLETED");
+    let isUnfulfilled = rawStatus === "UNFULFILLED" || (elapsedMinutes >= MAX_AGING_MINUTES && !isCompleted);
+    let isOngoing = !isCompleted && !isUnfulfilled;
 
     let percent = Math.min(100, (elapsedMinutes / MAX_AGING_MINUTES) * 100);
 
@@ -329,13 +460,12 @@ function updateAgingProgressBars(now) {
     const fillEl = tr.querySelector(".aging-fill");
     const elapsedLabel = tr.querySelector(".elapsed-text-label");
     const statusLabel = tr.querySelector(".status-label");
-    const statusCell = tr.querySelector(".status-cell");
 
     if (fillEl) {
       fillEl.style.width = `${percent}%`;
       fillEl.style.backgroundColor = barColor;
 
-      if (isOngoing && !isCompleted && !isUnfulfilled) {
+      if (isOngoing) {
         fillEl.classList.add("animated");
       } else {
         fillEl.classList.remove("animated");
@@ -343,37 +473,192 @@ function updateAgingProgressBars(now) {
     }
 
     if (elapsedLabel) {
-      if (elapsedMinutes >= 60) {
-        const hours = Math.floor(elapsedMinutes / 60);
-        const mins = elapsedMinutes % 60;
-        elapsedLabel.textContent = `${hours}h ${mins}m elapsed`;
-      } else {
-        elapsedLabel.textContent = `${elapsedMinutes} mins elapsed`;
-      }
+      elapsedLabel.textContent = elapsedMinutes >= 60 
+        ? `${Math.floor(elapsedMinutes / 60)}h ${elapsedMinutes % 60}m elapsed` 
+        : `${elapsedMinutes} mins elapsed`;
     }
 
     if (statusLabel) {
-      statusLabel.textContent = isCompleted ? 'Completed' : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours');
-    }
-
-    if (statusCell) {
-      if (isCompleted) {
-        statusCell.innerHTML = `<span class="status-pill status-completed">COMPLETED</span>`;
-      } else if (isUnfulfilled) {
-        statusCell.innerHTML = `<span class="status-pill status-unfulfilled">UNFULFILLED</span>`;
-      } else {
-        statusCell.innerHTML = `<span class="status-pill status-ongoing">ONGOING</span>`;
-      }
+      statusLabel.textContent = isCompleted ? rawStatus : (isUnfulfilled ? 'Expired (2h)' : 'Max 2 Hours');
     }
   });
 }
 
+// PROMPT COMPLETE TASK DIALOG
+function promptCompleteTask(rowIndex, elapsedMinutes, firstEmail, caseTitle, guestContact, customer) {
+  pendingCompleteRowIndex = rowIndex;
+  pendingCompleteElapsedMinutes = elapsedMinutes;
+
+  document.getElementById("confirmFirstEmail").textContent = firstEmail || "N/A";
+  document.getElementById("confirmCaseTitle").textContent = caseTitle || "N/A";
+  document.getElementById("confirmGuestContact").textContent = guestContact || "N/A";
+  document.getElementById("confirmCustomer").textContent = customer || "N/A";
+  document.getElementById("completeConfirmModal").style.display = "flex";
+}
+
+// CONFIRM COMPLETE TASK PROCEED WITH DYNAMIC STATUS TAGGING
+function confirmProceedComplete() {
+  if (!pendingCompleteRowIndex) return;
+
+  const proceedBtn = document.getElementById("proceedCompleteBtn");
+  proceedBtn.textContent = "Processing...";
+  proceedBtn.setAttribute("disabled", "true");
+
+  // Determine if completion is within 2 hours or overdue
+  const statusTag = pendingCompleteElapsedMinutes <= MAX_AGING_MINUTES 
+    ? "COMPLETED | On-time" 
+    : "COMPLETED | Overdue";
+
+  makeApiCall({
+    action: "completeTask",
+    rowIndex: pendingCompleteRowIndex,
+    statusTag: statusTag
+  }, "handleCompleteTaskResponse");
+}
+
+window.handleCompleteTaskResponse = function(res) {
+  const proceedBtn = document.getElementById("proceedCompleteBtn");
+  proceedBtn.textContent = "Proceed";
+  proceedBtn.removeAttribute("disabled");
+
+  document.getElementById("completeConfirmModal").style.display = "none";
+
+  if (res && res.status === "success") {
+    showBottomToast(`Task completed! (${res.statusTag || 'COMPLETED'})`);
+    fetchCases();
+  } else {
+    alert("Error completing task. Please try again.");
+  }
+};
+
+// SHOW BOTTOM TOAST
+function showBottomToast(msg) {
+  const toast = document.getElementById("bottomToast");
+  const msgEl = document.getElementById("toastMsg");
+  if (!toast || !msgEl) return;
+
+  msgEl.textContent = msg;
+  toast.classList.add("show");
+
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, 4000);
+}
+
+function openGuestContactNote(caseTitle, guestContact, customer) {
+  document.getElementById("noteCaseTitle").textContent = caseTitle || "N/A";
+  document.getElementById("noteGuestContact").textContent = guestContact || "N/A";
+  document.getElementById("noteCustomer").textContent = customer || "N/A";
+  document.getElementById("guestNoteModal").style.display = "flex";
+}
+
+function openCompletedNote(completedTimeStamp) {
+  document.getElementById("completedTimeVal").textContent = completedTimeStamp || "N/A";
+  document.getElementById("completedNoteModal").style.display = "flex";
+}
+
+function escapeQuotes(str) {
+  if (!str) return "";
+  return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// EXCEL IMPORT HANDLER
+function setupExcelImport() {
+  const importBtn = document.getElementById("importFileBtn");
+  const fileInput = document.getElementById("xlsxFileInput");
+
+  if (!importBtn || !fileInput) return;
+
+  importBtn.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const filename = file.name.toLowerCase();
+    if (!filename.endsWith(".xlsx")) {
+      showImportNotification("Error: Invalid file format! Please upload a valid raw.xlsx file.", true);
+      fileInput.value = "";
+      return;
+    }
+
+    showImportNotification("Reading file contents...", false);
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const sheetJson = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (sheetJson.length < 2) {
+          showImportNotification("Error: File contains no data rows below header.", true);
+          fileInput.value = "";
+          return;
+        }
+
+        const dataRows = sheetJson.slice(1).map(r => {
+          let rowArr = [];
+          for (let i = 0; i < 20; i++) {
+            rowArr.push(r[i] !== undefined && r[i] !== null ? r[i].toString() : "");
+          }
+          return rowArr;
+        });
+
+        showImportNotification(`Uploading ${dataRows.length} imported rows to Google Sheets...`, false);
+
+        fetch(GOOGLE_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "appendRawData",
+            rows: dataRows
+          })
+        })
+        .then(res => res.json())
+        .then(resData => {
+          if (resData && resData.status === "success") {
+            showImportNotification(`Success: ${resData.message || 'Import completed!'}`, false);
+            fetchCases();
+          } else {
+            showImportNotification(`Error: ${resData.message || 'Failed to import records.'}`, true);
+          }
+        })
+        .catch(err => {
+          showImportNotification("Error uploading records to server.", true);
+        })
+        .finally(() => {
+          fileInput.value = "";
+        });
+
+      } catch (err) {
+        showImportNotification("Error parsing Excel file.", true);
+        fileInput.value = "";
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function showImportNotification(msg, isError) {
+  const notifEl = document.getElementById("importNotif");
+  if (!notifEl) return;
+  notifEl.style.display = "block";
+  notifEl.style.color = isError ? "#ef4444" : "#10b981";
+  notifEl.textContent = msg;
+
+  if (!isError) {
+    setTimeout(() => { notifEl.style.display = "none"; }, 5000);
+  }
+}
+
 function validatePasswordRules(pass) {
   if (!pass || pass.length < 8) return false;
-  const hasUpper = /[A-Z]/.test(pass);
-  const hasDigit = /[0-9]/.test(pass);
-  const hasSpecial = /[^A-Za-z0-9]/.test(pass);
-  return hasUpper && hasDigit && hasSpecial;
+  return /[A-Z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass);
 }
 
 function checkRegistrationForm() {
@@ -391,8 +676,6 @@ function checkRegistrationForm() {
 
   if (p1 && p1.length < 8) {
     notif.textContent = "Password must be a minimum of 8 total characters!";
-  } else if (passMismatch && ansMismatch) {
-    notif.textContent = "Password and security answer mismatched!";
   } else if (passMismatch) {
     notif.textContent = "Password mismatch!";
   } else if (ansMismatch) {
@@ -422,26 +705,10 @@ function checkAccountManagementForm() {
 
   if (p1 && p1.length < 8) {
     notif.textContent = "Password must be a minimum of 8 total characters!";
-  } else if (currentEmployee.requiresPasswordSetup) {
-    const a1 = document.getElementById("accSecA").value;
-    const a2 = document.getElementById("accSecARetype").value;
-    let ansMismatch = (a1 !== a2) && (a1 !== "" || a2 !== "");
-
-    if (passMismatch && ansMismatch) {
-      notif.textContent = "Password and security answer mismatched!";
-    } else if (passMismatch) {
-      notif.textContent = "Password mismatch!";
-    } else if (ansMismatch) {
-      notif.textContent = "Security answer mismatch!";
-    } else {
-      notif.textContent = "";
-    }
+  } else if (passMismatch) {
+    notif.textContent = "Password mismatch!";
   } else {
-    if (passMismatch) {
-      notif.textContent = "Password mismatch!";
-    } else {
-      notif.textContent = "";
-    }
+    notif.textContent = "";
   }
 }
 
@@ -470,6 +737,21 @@ document.addEventListener("DOMContentLoaded", () => {
   startLiveClock();
   setupLogoToggle();
   initAntiScreenLock();
+  setupExcelImport();
+
+  document.getElementById("closeGuestNoteBtn").addEventListener("click", () => {
+    document.getElementById("guestNoteModal").style.display = "none";
+  });
+
+  document.getElementById("closeCompletedNoteBtn").addEventListener("click", () => {
+    document.getElementById("completedNoteModal").style.display = "none";
+  });
+
+  document.getElementById("cancelCompleteBtn").addEventListener("click", () => {
+    document.getElementById("completeConfirmModal").style.display = "none";
+  });
+
+  document.getElementById("proceedCompleteBtn").addEventListener("click", confirmProceedComplete);
 
   const passInput = document.getElementById("loginPasswordInput");
   document.getElementById("loginSubmitBtn").addEventListener("click", performLogin);
@@ -495,6 +777,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("loginModal").style.display = "none";
       document.getElementById("accName").value = currentEmployee.name;
 
+      // Apply role permissions based on Col H (AGENT / SUPPORT)
+      applyRolePermissions();
+
       if (currentEmployee.secQuestion && currentEmployee.secAnswer) {
         document.getElementById("accSecQDropdownGroup").style.display = "none";
         document.getElementById("accSecQFixedGroup").style.display = "block";
@@ -516,18 +801,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (currentEmployee.requiresPasswordSetup) {
         setNavLock(true);
         switchView("accMgmtView", document.getElementById("navAccMgmtBtn"));
-        document.getElementById("accSubtext").textContent = "Initial password setup required before accessing portal views.";
       } else {
         setNavLock(false);
         switchView("prodView", document.getElementById("navProdBtn"));
-        document.getElementById("accSubtext").textContent = "Manage your credentials and security preferences.";
 
         fetchCases();
         if (syncIntervalId) clearInterval(syncIntervalId);
         syncIntervalId = setInterval(fetchCases, 10000);
       }
     } else if (res.status === "denied") {
-      notif.textContent = "Login denied: Account is not ACTIVE.";
+      notif.textContent = res.message || "Login denied: Account is not ACTIVE.";
     } else {
       document.getElementById("loginModal").style.display = "none";
       document.getElementById("notFoundModal").style.display = "flex";
@@ -585,6 +868,8 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Account created successfully! Please log in.");
       document.getElementById("createModal").style.display = "none";
       document.getElementById("loginModal").style.display = "flex";
+    } else if (res.status === "denied") {
+      notif.textContent = res.message || "Account is not ACTIVE!";
     } else if (res.status === "unauthorized") {
       notif.textContent = "Unauthorized account creation!";
     } else {
